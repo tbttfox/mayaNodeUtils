@@ -7,10 +7,15 @@ And for now, this is just a single header file for you to drop into your project
 
 ## The really useful functions are
 
-### getDenseArrayHandleData and getDenseArrayChildHandleData
+### getFullArrayHandleData and getFullArrayChildHandleData
 
 These get data from array plugs (or children of array plugs) and put them in std::vectors or M*Arrays
 Filling in any undefined spots with a default value.
+
+### getCompactArrayHandleData and getCompactArrayChildHandleData
+
+These get data from array plugs (or children of array plugs) and put them in std::vectors or M*Arrays
+Skipping over any undefined values.
 
 ### getSparseArrayHandleData and getSparseArrayChildHandleData
 
