@@ -555,6 +555,7 @@ inline auto appender(ArrayType& outArray, ValueType& val)
 Compact getter templates
 ************************************/
 
+
 template <typename ValuePusher>
 inline void getCompactArrayMultiHandleData(
     MArrayDataHandle& arrayHandle, unsigned int minSize,
@@ -582,32 +583,33 @@ template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>
 inline void getCompactArrayHandleData(
     MDataBlock& dataBlock, MObject& attr, T& ret, unsigned int minSize = 0,
     ValueGetter valueGetter = ValueGetter()
-
 ) {
     MArrayDataHandle arrayHandle = dataBlock.inputArrayValue(attr);
     getCompactArrayHandleData(arrayHandle, ret, minSize, valueGetter);
 }
 
 template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
-inline void getCompactArrayChildHandleData(
-    MArrayDataHandle& arrayHandle, MObject& childAttr, T& ret, unsigned int minSize = 0,
+inline void getCompactArrayHandleData(
+    MArrayDataHandle& arrayHandle, const std::vector<MObject>& children, T& ret, unsigned int minSize = 0,
     ValueGetter valueGetter = ValueGetter()
 ) {
     auto childValueGetter = [&](MDataHandle& h) {
-        MDataHandle childh = h.child(childAttr);
+        MDataHandle childh = getHandleChildren(h, children);
         return valueGetter(childh);
     };
     getCompactArrayHandleData(arrayHandle, ret, minSize, childValueGetter);
 }
 
 template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
-inline void getCompactArrayChildHandleData(
-    MDataBlock& dataBlock, MObject& attr, MObject& childAttr, T& ret, unsigned int minSize = 0,
+inline void getCompactArrayHandleData(
+    MDataBlock& dataBlock, MObject& attr, const std::vector<MObject>& children, T& ret, unsigned int minSize = 0,
     ValueGetter valueGetter = ValueGetter()
 ) {
     MArrayDataHandle handle = dataBlock.inputArrayValue(attr);
-    getCompactArrayChildHandleData(handle, childAttr, ret, minSize, valueGetter);
+    getCompactArrayHandleData(handle, children, ret, minSize, valueGetter);
 }
+
+
 
 /************************************
 Full getter templates
@@ -652,31 +654,30 @@ template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>
 inline void getFullArrayHandleData(
     MDataBlock& dataBlock, MObject& attr, T& ret, unsigned int minSize = 0,
     ValueGetter valueGetter = ValueGetter()
-
 ) {
     MArrayDataHandle arrayHandle = dataBlock.inputArrayValue(attr);
     getFullArrayHandleData(arrayHandle, ret, minSize, valueGetter);
 }
 
 template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
-inline void getFullArrayChildHandleData(
-    MArrayDataHandle& arrayHandle, MObject& childAttr, T& ret, unsigned int minSize = 0,
+inline void getFullArrayHandleData(
+    MArrayDataHandle& arrayHandle, const std::vector<MObject>& children, T& ret, unsigned int minSize = 0,
     ValueGetter valueGetter = ValueGetter()
 ) {
     auto childValueGetter = [&](MDataHandle& h) {
-        MDataHandle childh = h.child(childAttr);
+        MDataHandle childh = getHandleChildren(h, children);
         return valueGetter(childh);
     };
     getFullArrayHandleData(arrayHandle, ret, minSize, childValueGetter);
 }
 
 template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
-inline void getFullArrayChildHandleData(
-    MDataBlock& dataBlock, MObject& attr, MObject& childAttr, T& ret, unsigned int minSize = 0,
+inline void getFullArrayHandleData(
+    MDataBlock& dataBlock, MObject& attr, const std::vector<MObject>& children, T& ret, unsigned int minSize = 0,
     ValueGetter valueGetter = ValueGetter()
 ) {
     MArrayDataHandle handle = dataBlock.inputArrayValue(attr);
-    getFullArrayChildHandleData(handle, childAttr, ret, minSize, valueGetter);
+    getFullArrayHandleData(handle, children, ret, minSize, valueGetter);
 }
 
 /************************************
@@ -702,24 +703,23 @@ inline void getSparseArrayHandleData(
 
 template <typename T, typename ValueGetter = DefaultHandleValueGetter<T>>
 inline void getSparseArrayHandleData(
-    MDataBlock& dataBlock, MObject& attr, std::unordered_map<unsigned int, T>& ret,
-    ValueGetter valueGetter = ValueGetter()
+    MArrayDataHandle& arrayHandle, const std::vector<MObject>& children,
+    std::unordered_map<unsigned int, T>& ret, ValueGetter valueGetter = ValueGetter()
 ) {
-    MArrayDataHandle arrayHandle = dataBlock.inputArrayValue(attr);
-    getSparseArrayHandleData<T>(arrayHandle, ret, valueGetter);
-}
-
-template <typename T, typename ValueGetter = DefaultHandleValueGetter<T>>
-inline void getSparseArrayChildHandleData(
-    MArrayDataHandle& arrayHandle, MObject& childAttr, std::unordered_map<unsigned int, T>& ret,
-    ValueGetter valueGetter = ValueGetter()
-) {
-    auto childValueGetter = [&childAttr, &valueGetter](MDataHandle& h) {
-        return valueGetter(h.child(childAttr));
+    auto childValueGetter = [&children, &valueGetter](MDataHandle& h) {
+        return valueGetter(getHandleChildren(h, children));
     };
     getSparseArrayChildHandleData<T>(arrayHandle, ret, childValueGetter);
 }
 
+template <typename T, typename ValueGetter = DefaultHandleValueGetter<T>>
+inline void getSparseArrayHandleData(
+    MDataBlock& dataBlock, MObject& attr, const std::vector<MObject>& children, std::unordered_map<unsigned int, T>& ret,
+    ValueGetter valueGetter = ValueGetter()
+) {
+    MArrayDataHandle arrayHandle = dataBlock.inputArrayValue(attr);
+    getSparseArrayHandleData<T>(arrayHandle, children, ret, valueGetter);
+}
 /************************************
 Reminder templates
 *************************************
