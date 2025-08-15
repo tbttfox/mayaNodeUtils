@@ -7,17 +7,22 @@ And for now, this is just a single header file for you to drop into your project
 
 ## The really useful functions are
 
-### getFullArrayHandleData and getFullArrayChildHandleData
+### getFullArrayHandleData
 
 These get data from array plugs (or children of array plugs) and put them in std::vectors or M*Arrays
 Filling in any undefined spots with a default value.
 
-### getCompactArrayHandleData and getCompactArrayChildHandleData
+### getCompactArrayHandleData
 
 These get data from array plugs (or children of array plugs) and put them in std::vectors or M*Arrays
-Skipping over any undefined values.
+Skipping over any undefined values
 
-### getSparseArrayHandleData and getSparseArrayChildHandleData
+### getCompactIndexArrayHandleData
+
+These get data from array plugs (or children of array plugs) and put them in std::vectors or M*Arrays
+Skipping over any undefined values, and also returning a std::vector<UINT> of indexes
+
+### getSparseArrayHandleData
 
 These get data from array plugs (or children of array plugs) and put them in std::unordered_maps keyed by the indices
 

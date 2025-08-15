@@ -572,19 +572,21 @@ inline auto getlen(ArrayType& array) -> decltype(std::declval<ArrayType>().size(
 }
 
 /************************************
-Compact getter templates (get vector of values skipping non-existent handle values, and an index
-array)
+Compact index getter templates (get vector of values skipping non-existent handle values, and an
+index array)
 ************************************/
 
 template <typename ValuePusher>
-inline void getCompactArrayMultiHandleData(MArrayDataHandle& arrayHandle, ValuePusher valuePusher) {
+inline void getCompactIndexArrayMultiHandleData(
+    MArrayDataHandle& arrayHandle, ValuePusher valuePusher
+) {
     for (auto [index, handle] : MArrayInputDataHandleRange(arrayHandle)) {
         valuePusher(index, handle);
     }
 }
 
 template <typename T, typename IDXS, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
-inline void getCompactArrayHandleData(
+inline void getCompactIndexArrayHandleData(
     MArrayDataHandle& arrayHandle, T& ret, IDXS& idxs, MStatus* status,
     ValueGetter valueGetter = ValueGetter()
 ) {
@@ -594,20 +596,20 @@ inline void getCompactArrayHandleData(
         appender(idxs, index);
     };
 
-    getCompactArrayMultiHandleData(arrayHandle, valuePusher);
+    getCompactIndexArrayMultiHandleData(arrayHandle, valuePusher);
 }
 
 template <typename T, typename IDXS, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
-inline void getCompactArrayHandleData(
+inline void getCompactIndexArrayHandleData(
     MDataBlock& dataBlock, MObject& attr, T& ret, IDXS& idxs,
     ValueGetter valueGetter = ValueGetter()
 ) {
     MArrayDataHandle arrayHandle = dataBlock.inputArrayValue(attr);
-    getCompactArrayHandleData(arrayHandle, ret, idxs, valueGetter);
+    getCompactIndexArrayHandleData(arrayHandle, ret, idxs, valueGetter);
 }
 
 template <typename T, typename IDXS, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
-inline void getCompactArrayHandleData(
+inline void getCompactIndexArrayHandleData(
     MArrayDataHandle& arrayHandle, const std::vector<MObject>& children, T& ret, IDXS& idxs,
     MStatus* status, ValueGetter valueGetter = ValueGetter()
 ) {
@@ -615,16 +617,68 @@ inline void getCompactArrayHandleData(
         MDataHandle childh = getHandleChildren(h, children);
         return valueGetter(childh, status);
     };
-    getCompactArrayHandleData(arrayHandle, ret, idxs, childValueGetter);
+    getCompactIndexArrayHandleData(arrayHandle, ret, idxs, childValueGetter);
 }
 
 template <typename T, typename IDXS, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
-inline void getCompactArrayHandleData(
+inline void getCompactIndexArrayHandleData(
     MDataBlock& dataBlock, MObject& attr, const std::vector<MObject>& children, T& ret, IDXS& idxs,
     ValueGetter valueGetter = ValueGetter()
 ) {
     MArrayDataHandle handle = dataBlock.inputArrayValue(attr);
-    getCompactArrayHandleData(handle, children, ret, idxs, valueGetter);
+    getCompactIndexArrayHandleData(handle, children, ret, idxs, valueGetter);
+}
+
+/************************************
+Compact getter templates (get vector of values skipping non-existent handle values, No index array)
+************************************/
+
+template <typename ValuePusher>
+inline void getCompactArrayMultiHandleData(MArrayDataHandle& arrayHandle, ValuePusher valuePusher) {
+    for (auto [index, handle] : MArrayInputDataHandleRange(arrayHandle)) {
+        valuePusher(index, handle);
+    }
+}
+
+template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
+inline void getCompactArrayHandleData(
+    MArrayDataHandle& arrayHandle, T& ret, MStatus* status, ValueGetter valueGetter = ValueGetter()
+) {
+    auto valuePusher = [&](unsigned int index, MDataHandle& handle) {
+        auto gg = valueGetter(handle, status);
+        appender(ret, gg);
+    };
+
+    getCompactArrayMultiHandleData(arrayHandle, valuePusher);
+}
+
+template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
+inline void getCompactArrayHandleData(
+    MDataBlock& dataBlock, MObject& attr, T& ret, ValueGetter valueGetter = ValueGetter()
+) {
+    MArrayDataHandle arrayHandle = dataBlock.inputArrayValue(attr);
+    getCompactArrayHandleData(arrayHandle, ret, valueGetter);
+}
+
+template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
+inline void getCompactArrayHandleData(
+    MArrayDataHandle& arrayHandle, const std::vector<MObject>& children, T& ret, MStatus* status,
+    ValueGetter valueGetter = ValueGetter()
+) {
+    auto childValueGetter = [&](MDataHandle& h, MStatus* status) {
+        MDataHandle childh = getHandleChildren(h, children);
+        return valueGetter(childh, status);
+    };
+    getCompactArrayHandleData(arrayHandle, ret, childValueGetter);
+}
+
+template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
+inline void getCompactArrayHandleData(
+    MDataBlock& dataBlock, MObject& attr, const std::vector<MObject>& children, T& ret,
+    ValueGetter valueGetter = ValueGetter()
+) {
+    MArrayDataHandle handle = dataBlock.inputArrayValue(attr);
+    getCompactArrayHandleData(handle, children, ret, valueGetter);
 }
 
 /************************************
