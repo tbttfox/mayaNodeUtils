@@ -140,10 +140,10 @@ template <typename Container> using FnSetTypeT = typename FnSetType<Container>::
 
 template <typename T, typename MFnT>
 inline T hg_impl(MDataHandle &handle) {
-    MStatus stat;
+    MStatus status;
     MObject ret = handle.data();
-    MFnT mfnd(ret, &stat);
-    if (stat) {
+    MFnT mfnd(ret, &status);
+    if (status) {
         return mfnd.array();
     }
     return T();
@@ -317,14 +317,14 @@ inline MDataHandle getHandleChildren(MDataHandle& handle, const std::vector<MObj
 
 inline MDataHandle getInputArrayHandleChildren(
     MArrayDataHandle& arrayHandle, unsigned int index, const std::vector<MObject>& children,
-    MStatus* stat
+    MStatus* status
 ) {
-    *stat = arrayHandle.jumpToElement(index);
-    if (!*stat) {
+    *status = arrayHandle.jumpToElement(index);
+    if (!*status) {
         return MDataHandle();
     }
-    MDataHandle parhandle = arrayHandle.inputValue(stat);
-    if (!*stat) {
+    MDataHandle parhandle = arrayHandle.inputValue(status);
+    if (!*status) {
         return MDataHandle();
     }
     MDataHandle childhandle = getHandleChildren(parhandle, children);
@@ -333,25 +333,25 @@ inline MDataHandle getInputArrayHandleChildren(
 
 inline MDataHandle getInputArrayHandleChildren(
     MDataBlock& block, MObject& arrayAttr, unsigned int index, const std::vector<MObject>& children,
-    MStatus* stat
+    MStatus* status
 ) {
-    MArrayDataHandle arrayHandle = block.inputArrayValue(arrayAttr, stat);
-    if (!*stat) {
+    MArrayDataHandle arrayHandle = block.inputArrayValue(arrayAttr, status);
+    if (!*status) {
         return MDataHandle();
     }
-    return getInputArrayHandleChildren(arrayHandle, index, children, stat);
+    return getInputArrayHandleChildren(arrayHandle, index, children, status);
 }
 
 inline MDataHandle getOutputArrayHandleChildren(
     MArrayDataHandle& arrayHandle, unsigned int index, const std::vector<MObject>& children,
-    MStatus* stat
+    MStatus* status
 ) {
-    *stat = arrayHandle.jumpToElement(index);
-    if (!*stat) {
+    *status = arrayHandle.jumpToElement(index);
+    if (!*status) {
         return MDataHandle();
     }
-    MDataHandle parhandle = arrayHandle.outputValue(stat);
-    if (!*stat) {
+    MDataHandle parhandle = arrayHandle.outputValue(status);
+    if (!*status) {
         return MDataHandle();
     }
     MDataHandle childhandle = getHandleChildren(parhandle, children);
@@ -360,27 +360,27 @@ inline MDataHandle getOutputArrayHandleChildren(
 
 inline MDataHandle getOutputArrayHandleChildren(
     MDataBlock& block, MObject& arrayAttr, unsigned int index, const std::vector<MObject>& children,
-    MStatus* stat
+    MStatus* status
 ) {
-    MArrayDataHandle arrayHandle = block.outputArrayValue(arrayAttr, stat);
-    if (!*stat) {
+    MArrayDataHandle arrayHandle = block.outputArrayValue(arrayAttr, status);
+    if (!*status) {
         return MDataHandle();
     }
-    return getOutputArrayHandleChildren(arrayHandle, index, children, stat);
+    return getOutputArrayHandleChildren(arrayHandle, index, children, status);
 }
 
 inline HandleBuilder buildArrayHandleChildren(
     MArrayDataHandle& arrayHandle, unsigned int index, const std::vector<MObject>& children,
-    MStatus* stat
+    MStatus* status
 ) {
-    MArrayDataBuilder builder = arrayHandle.builder(stat);
-    if (!*stat) {
+    MArrayDataBuilder builder = arrayHandle.builder(status);
+    if (!*status) {
         return {MDataHandle(), builder};
     }
 
-    MDataHandle parhandle = builder.addElement(index, stat);
+    MDataHandle parhandle = builder.addElement(index, status);
 
-    if (!*stat) {
+    if (!*status) {
         return {MDataHandle(), builder};
     }
 
@@ -390,20 +390,20 @@ inline HandleBuilder buildArrayHandleChildren(
 
 inline HandleBuilder buildOutputArrayHandleChildren(
     MDataBlock& block, MObject& arrayAttr, unsigned int index, const std::vector<MObject>& children,
-    MStatus* stat
+    MStatus* status
 ) {
     MArrayDataHandle arrayHandle = block.outputArrayValue(arrayAttr);
-    // Ignore the prev stat. so I don't have to construct an MArrayDataBuilder
-    return buildArrayHandleChildren(arrayHandle, index, children, stat);
+    // Ignore the prev status. so I don't have to construct an MArrayDataBuilder
+    return buildArrayHandleChildren(arrayHandle, index, children, status);
 }
 
 inline HandleBuilder buildInputArrayHandleChildren(
     MDataBlock& block, MObject& arrayAttr, unsigned int index, const std::vector<MObject>& children,
-    MStatus* stat
+    MStatus* status
 ) {
     MArrayDataHandle arrayHandle = block.inputArrayValue(arrayAttr);
-    // Ignore the prev stat. so I don't have to construct an MArrayDataBuilder
-    return buildArrayHandleChildren(arrayHandle, index, children, stat);
+    // Ignore the prev status. so I don't have to construct an MArrayDataBuilder
+    return buildArrayHandleChildren(arrayHandle, index, children, status);
 }
 
 template <typename T>
@@ -448,25 +448,25 @@ inline MDataHandle setHandleArrayData(
 template <typename T>
 inline MDataHandle setOutputArrayData(
     MDataBlock& block, MObject& parAttr, unsigned int index, const std::vector<MObject>& children,
-    T& value, MStatus* stat
+    T& value, MStatus* status
 ) {
-    MArrayDataHandle arrayHandle = block.outputArrayValue(parAttr, stat);
-    if (!*stat) {
+    MArrayDataHandle arrayHandle = block.outputArrayValue(parAttr, status);
+    if (!*status) {
         return MDataHandle();
     }
-    return setHandleArrayData(arrayHandle, index, children, value, stat);
+    return setHandleArrayData(arrayHandle, index, children, value, status);
 }
 
 template <typename T>
 inline MDataHandle setInputArrayData(
     MDataBlock& block, MObject& parAttr, unsigned int index, const std::vector<MObject>& children,
-    T& value, MStatus* stat
+    T& value, MStatus* status
 ) {
-    MArrayDataHandle arrayHandle = block.inputArrayValue(parAttr, stat);
-    if (!*stat) {
+    MArrayDataHandle arrayHandle = block.inputArrayValue(parAttr, status);
+    if (!*status) {
         return MDataHandle();
     }
-    return setHandleArrayData(arrayHandle, index, children, value, stat);
+    return setHandleArrayData(arrayHandle, index, children, value, status);
 }
 
 /************************************
@@ -476,18 +476,18 @@ Templates for reading typed data from a handle
 template <typename T>
 inline void getInputArrayData(
     MDataBlock& block, MObject& arrayAttr, unsigned int multiIndex,
-    const std::vector<MObject>& children, T& ret, MStatus* stat
+    const std::vector<MObject>& children, T& ret, MStatus* status
 ) {
-    MArrayDataHandle parArrayHandle = block.inputArrayValue(arrayAttr, stat);
-    if (!*stat) {
+    MArrayDataHandle parArrayHandle = block.inputArrayValue(arrayAttr, status);
+    if (!*status) {
         return;
     }
-    *stat = parArrayHandle.jumpToElement(multiIndex);
-    if (!*stat) {
+    *status = parArrayHandle.jumpToElement(multiIndex);
+    if (!*status) {
         return;
     }
-    MDataHandle handle = parArrayHandle.inputValue(stat);
-    if (!*stat) {
+    MDataHandle handle = parArrayHandle.inputValue(status);
+    if (!*status) {
         return;
     }
     for (const MObject& childAttr : children) {
@@ -499,18 +499,18 @@ inline void getInputArrayData(
 template <typename T>
 inline void getOutputArrayData(
     MDataBlock& block, MObject& arrayAttr, unsigned int multiIndex,
-    const std::vector<MObject>& children, T& ret, MStatus* stat
+    const std::vector<MObject>& children, T& ret, MStatus* status
 ) {
-    MArrayDataHandle parArrayHandle = block.outputArrayValue(arrayAttr, stat);
-    if (!*stat) {
+    MArrayDataHandle parArrayHandle = block.outputArrayValue(arrayAttr, status);
+    if (!*status) {
         return;
     }
-    *stat = parArrayHandle.jumpToElement(multiIndex);
-    if (!*stat) {
+    *status = parArrayHandle.jumpToElement(multiIndex);
+    if (!*status) {
         return;
     }
-    MDataHandle handle = parArrayHandle.outputValue(stat);
-    if (!*stat) {
+    MDataHandle handle = parArrayHandle.outputValue(status);
+    if (!*status) {
         return;
     }
     for (const MObject& childAttr : children) {
