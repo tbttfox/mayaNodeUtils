@@ -17,7 +17,7 @@ Similar for the two others
 All as one loop to a struct. Probably a little faster, but harder to read.
 
     // Build a lambda that that makes a tuple of the 3 attributes
-    auto valueGetter = [&](MDataHandle& h) {
+    auto valueGetter = [&](MDataHandle& h, MStatus *status) {
         return std::make_tuple(
             h.child(aOrigMatrix).asMatrix(),
             h.child(aOrigAxisAngle).asVector(),
@@ -94,7 +94,7 @@ All as one loop to a struct. Probably a little faster, but harder to read.
 #include <iterator>
 #include <type_traits>
 #include <unordered_map>
-#include <utility>  // For std::pair
+#include <utility>
 #include <vector>
 
 namespace maya_node_utils {
@@ -139,21 +139,23 @@ template <typename Container> using ETypeT = typename ElementType<Container>::ty
 template <typename Container> using FnSetTypeT = typename FnSetType<Container>::type;
 
 template <typename T, typename MFnT>
-inline T hg_impl(MDataHandle &handle) {
-    MStatus status;
+inline T hg_impl(MDataHandle &handle, MStatus *status) {
     MObject ret = handle.data();
-    MFnT mfnd(ret, &status);
+    if (ret.isNull()){
+        *status = MStatus::kFailure;
+        status->perror("Handle had a null object");
+        return T();
+    }
+    MFnT mfnd(ret, status);
     if (status) {
         return mfnd.array();
     }
     return T();
 }
 
-
 template <typename T>
 struct DefaultHandleValueGetter {
-    T operator()(MDataHandle& handle) const {
-
+    T operator()(MDataHandle& handle, MStatus *status) const {
         if constexpr      (std::is_same_v<T, MAngle>)        { return handle.asAngle();       }
         else if constexpr (std::is_same_v<T, MTime>)         { return handle.asTime();        }
         else if constexpr (std::is_same_v<T, MDistance>)     { return handle.asDistance();    }
@@ -180,16 +182,16 @@ struct DefaultHandleValueGetter {
         else if constexpr (std::is_same_v<T, MInt64>)        { return handle.asInt64();       }
         else if constexpr (std::is_same_v<T, MMatrix>)       { return handle.asMatrix();      }
 
-        else if constexpr (std::is_same_v<T, MDoubleArray>)      { return hg_impl<T, MFnDoubleArrayData>     (handle); }
-        else if constexpr (std::is_same_v<T, MFloatArray>)       { return hg_impl<T, MFnFloatArrayData>      (handle); }
-        else if constexpr (std::is_same_v<T, MIntArray>)         { return hg_impl<T, MFnIntArrayData>        (handle); }
-        else if constexpr (std::is_same_v<T, MMatrixArray>)      { return hg_impl<T, MFnMatrixArrayData>     (handle); }
-        else if constexpr (std::is_same_v<T, MPointArray>)       { return hg_impl<T, MFnPointArrayData>      (handle); }
-        else if constexpr (std::is_same_v<T, MStringArray>)      { return hg_impl<T, MFnStringArrayData>     (handle); }
-        else if constexpr (std::is_same_v<T, MUint64Array>)      { return hg_impl<T, MFnUInt64ArrayData>     (handle); }
-        else if constexpr (std::is_same_v<T, MUintArray>)        { return hg_impl<T, MFnUintArrayData>       (handle); }
-        else if constexpr (std::is_same_v<T, MFloatVectorArray>) { return hg_impl<T, MFnFloatVectorArrayData>(handle); }
-        else if constexpr (std::is_same_v<T, MVectorArray>)      { return hg_impl<T, MFnVectorArrayData>     (handle); }
+        else if constexpr (std::is_same_v<T, MDoubleArray>)      { return hg_impl<T, MFnDoubleArrayData>     (handle, status); }
+        else if constexpr (std::is_same_v<T, MFloatArray>)       { return hg_impl<T, MFnFloatArrayData>      (handle, status); }
+        else if constexpr (std::is_same_v<T, MIntArray>)         { return hg_impl<T, MFnIntArrayData>        (handle, status); }
+        else if constexpr (std::is_same_v<T, MMatrixArray>)      { return hg_impl<T, MFnMatrixArrayData>     (handle, status); }
+        else if constexpr (std::is_same_v<T, MPointArray>)       { return hg_impl<T, MFnPointArrayData>      (handle, status); }
+        else if constexpr (std::is_same_v<T, MStringArray>)      { return hg_impl<T, MFnStringArrayData>     (handle, status); }
+        else if constexpr (std::is_same_v<T, MUint64Array>)      { return hg_impl<T, MFnUInt64ArrayData>     (handle, status); }
+        else if constexpr (std::is_same_v<T, MUintArray>)        { return hg_impl<T, MFnUintArrayData>       (handle, status); }
+        else if constexpr (std::is_same_v<T, MFloatVectorArray>) { return hg_impl<T, MFnFloatVectorArrayData>(handle, status); }
+        else if constexpr (std::is_same_v<T, MVectorArray>)      { return hg_impl<T, MFnVectorArrayData>     (handle, status); }
 
         else { static_assert(false, "Unsupported MDataHandle type."); }
     }
@@ -457,6 +459,7 @@ inline MDataHandle setOutputArrayData(
     return setHandleArrayData(arrayHandle, index, children, value, status);
 }
 
+// This probably shouldn't ever be used, but I'm keeping it for completeness
 template <typename T>
 inline MDataHandle setInputArrayData(
     MDataBlock& block, MObject& parAttr, unsigned int index, const std::vector<MObject>& children,
@@ -493,7 +496,7 @@ inline void getInputArrayData(
     for (const MObject& childAttr : children) {
         handle = handle.child(childAttr);
     }
-    ret = DefaultHandleValueGetter<T>()(handle);
+    ret = DefaultHandleValueGetter<T>()(handle, status);
 }
 
 template <typename T>
@@ -516,7 +519,12 @@ inline void getOutputArrayData(
     for (const MObject& childAttr : children) {
         handle = handle.child(childAttr);
     }
-    ret = DefaultHandleValueGetter<T>()(handle);
+    ret = DefaultHandleValueGetter<T>()(handle, status);
+}
+
+template <typename T>
+inline void getMObjHandleData(MDataHandle& handle, T& value, MStatus* status) {
+    value = DefaultHandleValueGetter<T>()(handle, status);
 }
 
 /************************************
@@ -551,68 +559,76 @@ inline auto appender(ArrayType& outArray, ValueType& val)
     outArray.push_back(val);
 }
 
+// maya array .length
+template <typename ArrayType>
+inline auto getlen(ArrayType& array) -> decltype(std::declval<ArrayType>().length(), void()) {
+    return array.length();
+}
+
+// STL vector .size
+template <typename ArrayType>
+inline auto getlen(ArrayType& array) -> decltype(std::declval<ArrayType>().size(), void()) {
+    array.size();
+}
+
 /************************************
-Compact getter templates
+Compact getter templates (get vector of values skipping non-existent handle values, and an index
+array)
 ************************************/
 
-
 template <typename ValuePusher>
-inline void getCompactArrayMultiHandleData(
-    MArrayDataHandle& arrayHandle, unsigned int minSize,
-    ValuePusher valuePusher
-) {
+inline void getCompactArrayMultiHandleData(MArrayDataHandle& arrayHandle, ValuePusher valuePusher) {
     for (auto [index, handle] : MArrayInputDataHandleRange(arrayHandle)) {
         valuePusher(index, handle);
     }
 }
 
-template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
+template <typename T, typename IDXS, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
 inline void getCompactArrayHandleData(
-    MArrayDataHandle& arrayHandle, T& ret, unsigned int minSize = 0,
+    MArrayDataHandle& arrayHandle, T& ret, IDXS& idxs, MStatus* status,
     ValueGetter valueGetter = ValueGetter()
 ) {
-    auto valuePusher = [&ret, &valueGetter](unsigned int index, MDataHandle& handle) {
-        auto gg = valueGetter(handle);
+    auto valuePusher = [&](unsigned int index, MDataHandle& handle) {
+        auto gg = valueGetter(handle, status);
         appender(ret, gg);
+        appender(idxs, index);
     };
 
-    getCompactArrayMultiHandleData(arrayHandle, minSize, valuePusher);
+    getCompactArrayMultiHandleData(arrayHandle, valuePusher);
 }
 
-template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
+template <typename T, typename IDXS, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
 inline void getCompactArrayHandleData(
-    MDataBlock& dataBlock, MObject& attr, T& ret, unsigned int minSize = 0,
+    MDataBlock& dataBlock, MObject& attr, T& ret, IDXS& idxs,
     ValueGetter valueGetter = ValueGetter()
 ) {
     MArrayDataHandle arrayHandle = dataBlock.inputArrayValue(attr);
-    getCompactArrayHandleData(arrayHandle, ret, minSize, valueGetter);
+    getCompactArrayHandleData(arrayHandle, ret, idxs, valueGetter);
 }
 
-template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
+template <typename T, typename IDXS, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
 inline void getCompactArrayHandleData(
-    MArrayDataHandle& arrayHandle, const std::vector<MObject>& children, T& ret, unsigned int minSize = 0,
-    ValueGetter valueGetter = ValueGetter()
+    MArrayDataHandle& arrayHandle, const std::vector<MObject>& children, T& ret, IDXS& idxs,
+    MStatus* status, ValueGetter valueGetter = ValueGetter()
 ) {
-    auto childValueGetter = [&](MDataHandle& h) {
+    auto childValueGetter = [&](MDataHandle& h, MStatus* status) {
         MDataHandle childh = getHandleChildren(h, children);
-        return valueGetter(childh);
+        return valueGetter(childh, status);
     };
-    getCompactArrayHandleData(arrayHandle, ret, minSize, childValueGetter);
+    getCompactArrayHandleData(arrayHandle, ret, idxs, childValueGetter);
 }
 
-template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
+template <typename T, typename IDXS, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
 inline void getCompactArrayHandleData(
-    MDataBlock& dataBlock, MObject& attr, const std::vector<MObject>& children, T& ret, unsigned int minSize = 0,
+    MDataBlock& dataBlock, MObject& attr, const std::vector<MObject>& children, T& ret, IDXS& idxs,
     ValueGetter valueGetter = ValueGetter()
 ) {
     MArrayDataHandle handle = dataBlock.inputArrayValue(attr);
-    getCompactArrayHandleData(handle, children, ret, minSize, valueGetter);
+    getCompactArrayHandleData(handle, children, ret, idxs, valueGetter);
 }
 
-
-
 /************************************
-Full getter templates
+Full getter templates  (get vector with default values filled in)
 ************************************/
 
 template <typename DefaultPusher, typename ValuePusher>
@@ -637,11 +653,11 @@ inline void getFullArrayMultiHandleData(
 
 template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
 inline void getFullArrayHandleData(
-    MArrayDataHandle& arrayHandle, T& ret, unsigned int minSize = 0,
+    MArrayDataHandle& arrayHandle, T& ret, unsigned int minSize, MStatus* status,
     ValueGetter valueGetter = ValueGetter()
 ) {
-    auto valuePusher = [&ret, &valueGetter](unsigned int index, MDataHandle& handle) {
-        auto gg = valueGetter(handle);
+    auto valuePusher = [&](unsigned int index, MDataHandle& handle) {
+        auto gg = valueGetter(handle, status);
         appender(ret, gg);
     };
 
@@ -652,7 +668,7 @@ inline void getFullArrayHandleData(
 
 template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
 inline void getFullArrayHandleData(
-    MDataBlock& dataBlock, MObject& attr, T& ret, unsigned int minSize = 0,
+    MDataBlock& dataBlock, MObject& attr, T& ret, unsigned int minSize, MStatus* status,
     ValueGetter valueGetter = ValueGetter()
 ) {
     MArrayDataHandle arrayHandle = dataBlock.inputArrayValue(attr);
@@ -661,27 +677,61 @@ inline void getFullArrayHandleData(
 
 template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
 inline void getFullArrayHandleData(
-    MArrayDataHandle& arrayHandle, const std::vector<MObject>& children, T& ret, unsigned int minSize = 0,
-    ValueGetter valueGetter = ValueGetter()
+    MArrayDataHandle& arrayHandle, const std::vector<MObject>& children, T& ret,
+    unsigned int minSize, MStatus* status, ValueGetter valueGetter = ValueGetter()
 ) {
-    auto childValueGetter = [&](MDataHandle& h) {
+    auto childValueGetter = [&](MDataHandle& h, MStatus* status) {
         MDataHandle childh = getHandleChildren(h, children);
-        return valueGetter(childh);
+        return valueGetter(childh, status);
     };
-    getFullArrayHandleData(arrayHandle, ret, minSize, childValueGetter);
+    getFullArrayHandleData(arrayHandle, ret, minSize, status, childValueGetter);
 }
 
 template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
 inline void getFullArrayHandleData(
-    MDataBlock& dataBlock, MObject& attr, const std::vector<MObject>& children, T& ret, unsigned int minSize = 0,
-    ValueGetter valueGetter = ValueGetter()
+    MDataBlock& dataBlock, MObject& attr, const std::vector<MObject>& children, T& ret,
+    unsigned int minSize, MStatus* status, ValueGetter valueGetter = ValueGetter()
 ) {
     MArrayDataHandle handle = dataBlock.inputArrayValue(attr);
-    getFullArrayHandleData(handle, children, ret, minSize, valueGetter);
+    getFullArrayHandleData(handle, children, ret, minSize, status, valueGetter);
+}
+
+/////
+// Full getter templates with a default minsize of 0
+/////
+template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
+inline void getFullArrayHandleData(
+    MArrayDataHandle& arrayHandle, T& ret, MStatus* status, ValueGetter valueGetter = ValueGetter()
+) {
+    getFullArrayHandleData(arrayHandle, ret, 0, status, valueGetter);
+}
+
+template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
+inline void getFullArrayHandleData(
+    MDataBlock& dataBlock, MObject& attr, T& ret, MStatus* status,
+    ValueGetter valueGetter = ValueGetter()
+) {
+    getFullArrayHandleData(dataBlock, attr, ret, 0, status, valueGetter);
+}
+
+template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
+inline void getFullArrayHandleData(
+    MArrayDataHandle& arrayHandle, const std::vector<MObject>& children, T& ret, MStatus* status,
+    ValueGetter valueGetter = ValueGetter()
+) {
+    getFullArrayHandleData(arrayHandle, children, ret, 0, status, valueGetter);
+}
+
+template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
+inline void getFullArrayHandleData(
+    MDataBlock& dataBlock, MObject& attr, const std::vector<MObject>& children, T& ret,
+    MStatus* status, ValueGetter valueGetter = ValueGetter()
+) {
+    getFullArrayHandleData(dataBlock, attr, children, ret, 0, status, valueGetter);
 }
 
 /************************************
-Sparse getter templates
+Sparse getter templates  (get unordered_map keyed on indices)
 ************************************/
 template <typename ValuePusher>
 inline void getSparseArrayMultiHandleData(MArrayDataHandle& arrayHandle, ValuePusher valuePusher) {
@@ -692,11 +742,11 @@ inline void getSparseArrayMultiHandleData(MArrayDataHandle& arrayHandle, ValuePu
 
 template <typename T, typename ValueGetter = DefaultHandleValueGetter<T>>
 inline void getSparseArrayHandleData(
-    MArrayDataHandle& arrayHandle, std::unordered_map<unsigned int, T>& ret,
+    MArrayDataHandle& arrayHandle, std::unordered_map<unsigned int, T>& ret, MStatus* status,
     ValueGetter valueGetter = ValueGetter()
 ) {
-    auto valuePusher = [&ret, &valueGetter](unsigned int index, MDataHandle& handle) {
-        ret[index] = valueGetter(handle);
+    auto valuePusher = [&](unsigned int index, MDataHandle& handle) {
+        ret[index] = valueGetter(handle, status);
     };
     getSparseArrayMultiHandleData(arrayHandle, valuePusher);
 }
@@ -704,18 +754,19 @@ inline void getSparseArrayHandleData(
 template <typename T, typename ValueGetter = DefaultHandleValueGetter<T>>
 inline void getSparseArrayHandleData(
     MArrayDataHandle& arrayHandle, const std::vector<MObject>& children,
-    std::unordered_map<unsigned int, T>& ret, ValueGetter valueGetter = ValueGetter()
+    std::unordered_map<unsigned int, T>& ret, MStatus* status,
+    ValueGetter valueGetter = ValueGetter()
 ) {
-    auto childValueGetter = [&children, &valueGetter](MDataHandle& h) {
-        return valueGetter(getHandleChildren(h, children));
+    auto childValueGetter = [&](MDataHandle& h, MStatus* status) {
+        return valueGetter(getHandleChildren(h, children), status);
     };
     getSparseArrayChildHandleData<T>(arrayHandle, ret, childValueGetter);
 }
 
 template <typename T, typename ValueGetter = DefaultHandleValueGetter<T>>
 inline void getSparseArrayHandleData(
-    MDataBlock& dataBlock, MObject& attr, const std::vector<MObject>& children, std::unordered_map<unsigned int, T>& ret,
-    ValueGetter valueGetter = ValueGetter()
+    MDataBlock& dataBlock, MObject& attr, const std::vector<MObject>& children,
+    std::unordered_map<unsigned int, T>& ret, ValueGetter valueGetter = ValueGetter()
 ) {
     MArrayDataHandle arrayHandle = dataBlock.inputArrayValue(attr);
     getSparseArrayHandleData<T>(arrayHandle, children, ret, valueGetter);
@@ -754,22 +805,23 @@ How to have an input plug forwarded to the output so we can make changes to that
 */
 template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
 inline T forwardInputPlug(
-    MDataHandle& hInputGeom, MDataHandle& hOutput, ValueGetter valueGetter = ValueGetter()
+    MDataHandle& hInputGeom, MDataHandle& hOutput, MStatus* status,
+    ValueGetter valueGetter = ValueGetter()
 ) {
     hOutput.copy(hInputGeom);
-    return valueGetter(hOutput);
+    return valueGetter(hOutput, status);
 }
 
 template <typename T, typename ValueGetter = DefaultHandleValueGetter<ETypeT<T>>>
 inline T forwardInputPlug(
-    MDataBlock& dataBlock, MObject& inAttr, MObject& outAttr,
+    MDataBlock& dataBlock, MObject& inAttr, MObject& outAttr, MStatus* status,
     ValueGetter valueGetter = ValueGetter()
 ) {
     // get the input geometry and input groupId
     MDataHandle hInputGeom = dataBlock.inputValue(inAttr);
     MDataHandle hOutput = dataBlock.outputValue(outAttr);
     hOutput.copy(hInputGeom);
-    return valueGetter(hOutput);
+    return valueGetter(hOutput, status);
 }
 
 /*
@@ -785,5 +837,61 @@ void createOutputTypedAttr(MString& longName, MString& shortName) {
     MObject defaultObject = fnTypedData.create(&status);
     MObject mOutSubDArrayAttr = tAttr.create(longName, shortName, dtype, defaultObject);
 }
+
+/*
+A quick function for getting a value out of an unordered_map if it exists, otherwise return a
+default
+*/
+template <typename MTYPE, typename KTYPE, typename VALTYPE>
+inline VALTYPE getdefault(const MTYPE& mapper, const KTYPE& key, const VALTYPE& def) {
+    auto it = mapper.find(key);
+    if (it == mapper.end()) {
+        return def;
+    }
+    return it->second;
+}
+
+/*
+A container that walks over an ordered sparse set of key/value pairs
+This is kind of like an std::map that only allows forward iteration, but a lot dumber
+But because there's no hashing or trees going on, it can be nice and fast
+
+However this is NOT THREADSAFE!
+*/
+template <
+    typename KEYS, typename VALS, typename KEYTYPE = ETypeT<KEYS>, typename VALTYPE = ETypeT<VALS>>
+class ordered_accessor {
+   public:
+    ordered_accessor(const KEYS& inkeys, const VALS& invals, VALTYPE indef)
+        : lastidx(0), defval(indef), keys(inkeys), vals(invals) {}
+
+    void reset() { lastidx = 0; }
+    const VALTYPE next(const KEYTYPE& key) {
+        // past the end returns default
+        if (lastidx + 1 >= getlen(keys)) {
+            return defval;
+        }
+        // Re-getting the current key returns that key
+        const KEYTYPE& prevkey = keys[lastidx];
+        if (key == prevkey) {
+            return vals[lastidx];
+        }
+
+        // asking for the next key returns that key
+        // and increments the range
+        const KEYTYPE& nextkey = keys[lastidx + 1];
+        if (key == nextkey) {
+            return vals[++lastidx];
+        }
+        // otherwise return the default
+        return defval;
+    }
+
+   private:
+    KEYTYPE lastidx;
+    VALTYPE defval;
+    const KEYS& keys;
+    const VALS& vals;
+};
 
 }  // namespace maya_node_utils
