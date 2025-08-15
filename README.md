@@ -5,7 +5,10 @@ This made me angry, so I wrote this library.
 I've tried to template everything so that the compiler can optimize most of it away.
 And for now, this is just a single header file for you to drop into your project.
 
-## The really useful functions are
+Everything is in the `maya_node_utils` namespace, so you may want to add `using namespace maya_node_utils;` to your source file.
+
+
+## The really useful functions are ...
 
 ### getFullArrayHandleData
 
@@ -38,7 +41,32 @@ A nice range-based iterator over the sparse values of an MArrayDataHandle.
 `for (auto [index, handle] : MArrayInputDataHandleRange(arrayHandle)) { ... }`
 
 
+## The general setup is ...
+
+### Overloading
+There's a LOT of overloads for each of the useful functions, but they mostly boil down to "Get the array handle to loop over, and the data handle to get the value from"
+
+Each function name has overloads following this sort of pattern
+
+    // Loop over an array handle directly
+    (MArrayDataHandle& arrayHandle, ...)
+    (MDataBlock& dataBlock, MObject& attr, ...)
+
+    // Loop over an array handle and get data from any nested set of non-array children
+    (MArrayDataHandle& arrayHandle, const std::vector<MObject>& children, ...)
+    (MDataBlock& dataBlock, MObject& attr, const std::vector<MObject>& children, ...)
+
+
+### Value Getter
+
+Most of the functions also take a `valueGetter` which is a callable with signature `(MDataHandle& h, MStatus* status)`.
+However, in all cases this argument defaults to `DefaultHandleValueGetter` which should almost always return the correct type for you.
+
+I think it's only really useful to pass the `valueGetter` if you need to handle nested arrays.
+But in that case, I'd just `MArrayInputDataHandleRange` and write my own nested loop. It'll be easier than dealing with the lambdas,
+and you can use the `defaultHandleValueGetter` (note the lowercase D) wrapper function to get your data.
+
 ---
-There's more templates in there for automatically getting the correct function sets or data types
+There's a bunch of templates in there for automatically getting the correct function sets or data types like `DefaultHandleValueGetter`, `ElementType`, and `getMFnDataTypeForData`
 
 There's also some stupid functions at the bottom that aren't meant to be used. They're just there to demonstrate boilerplate stuff that I always forget.
