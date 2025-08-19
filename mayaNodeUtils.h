@@ -827,9 +827,9 @@ inline void getSparseArrayMultiHandleData(MArrayDataHandle& arrayHandle, ValuePu
     }
 }
 
-template <typename T, typename ValueGetter = DefaultHandleValueGetter<T>>
+template <typename Map, typename T=typename Map::mapped_type, typename ValueGetter = DefaultHandleValueGetter<T>>
 inline void getSparseArrayHandleData(
-    MArrayDataHandle& arrayHandle, std::unordered_map<unsigned int, T>& ret, MStatus* status=nullptr,
+    MArrayDataHandle& arrayHandle, Map& ret, MStatus* status=nullptr,
     ValueGetter valueGetter = ValueGetter()
 ) {
     auto valuePusher = [&](unsigned int index, MDataHandle& handle) {
@@ -838,10 +838,10 @@ inline void getSparseArrayHandleData(
     getSparseArrayMultiHandleData(arrayHandle, valuePusher);
 }
 
-template <typename T, typename ValueGetter = DefaultHandleValueGetter<T>>
+template <typename Map, typename T=typename Map::mapped_type, typename ValueGetter = DefaultHandleValueGetter<T>>
 inline void getSparseArrayHandleData(
     MArrayDataHandle& arrayHandle, const std::vector<MObject>& children,
-    std::unordered_map<unsigned int, T>& ret, MStatus* status=nullptr,
+    Map& ret, MStatus* status=nullptr,
     ValueGetter valueGetter = ValueGetter()
 ) {
     auto childValueGetter = [&](MDataHandle& h, MStatus* status=nullptr) {
@@ -850,10 +850,10 @@ inline void getSparseArrayHandleData(
     getSparseArrayChildHandleData<T>(arrayHandle, ret, childValueGetter);
 }
 
-template <typename T, typename ValueGetter = DefaultHandleValueGetter<T>>
+template <typename Map, typename T=typename Map::mapped_type, typename ValueGetter = DefaultHandleValueGetter<T>>
 inline void getSparseArrayHandleData(
     MDataBlock& dataBlock, MObject& attr, const std::vector<MObject>& children,
-    std::unordered_map<unsigned int, T>& ret, ValueGetter valueGetter = ValueGetter()
+    Map& ret, ValueGetter valueGetter = ValueGetter()
 ) {
     MArrayDataHandle arrayHandle = dataBlock.inputArrayValue(attr);
     getSparseArrayHandleData<T>(arrayHandle, children, ret, valueGetter);
